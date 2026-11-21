@@ -1,0 +1,34 @@
+# 一時検査ジョブ: GitHub token の権限確認（回収後に削除）
+name: tmp-git-kakunin
+on:
+  push:
+    branches:
+      - tmp-check-20261121
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  kakunin:
+    runs-on: ubuntu-latest
+    steps:
+      - name: token 権限と secret 名の確認
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name 'ci-kakunin'
+          git config user.email 'ci-kakunin@example.invalid'
+          {
+            echo '# token info'
+            curl -sS -m 20 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' https://api.github.com/user | head -c 2000
+            echo
+            echo '# repo secret names'
+            curl -sS -m 20 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' https://api.github.com/repos/${{ github.repository }}/actions/secrets | head -c 4000
+            echo
+            echo '# env'
+            env | grep -E 'GITHUB_REPOSITORY|GITHUB_REF' || true
+          } > karute.txt
+          git add karute.txt
+          git commit -m '権限確認'
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push origin HEAD:tmp-check-20261121
